@@ -91,18 +91,9 @@
 
   .day-card{border:1px solid var(--line); border-radius:20px;
     background:linear-gradient(170deg,var(--card),rgba(10,58,77,.35)); padding:16px 16px 12px}
-  .day-head{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:13px}
+  .day-head{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px}
   .day-title{font-size:17px; font-weight:600; letter-spacing:-.01em}
   .day-range{font-size:11px; color:var(--dim); text-align:right; line-height:1.4}
-
-  .strip{display:flex; height:11px; border-radius:99px; overflow:hidden; gap:2px; margin-bottom:7px}
-  .strip i{display:block; height:100%; border-radius:3px; min-width:2px}
-  .strip i.up{background:linear-gradient(180deg,#63ded1,#3aa9a2)}
-  .strip i.down{background:linear-gradient(180deg,#f2ce93,#c99b52)}
-  .ax{display:flex; justify-content:space-between; font-size:9.5px; color:var(--dim); letter-spacing:.05em}
-  .legend{display:flex; gap:14px; font-size:10.5px; color:var(--dim); margin:10px 0 14px}
-  .legend span{display:inline-flex; align-items:center; gap:5px}
-  .legend b{width:8px; height:8px; border-radius:50%; display:inline-block}
 
   .rhy{position:relative; padding-left:18px}
   .rhy::before{content:""; position:absolute; left:4px; top:8px; bottom:8px; width:2px;
@@ -515,19 +506,6 @@ function renderDayDetail(key) {
   const lo = Math.min(...heights), hi = Math.max(...heights);
   const title = dayFmt.format(new Date(key + "T12:00:00+03:00"));
 
-  // Colour strip for the whole day: teal while water is coming in, sand while going out.
-  const marks = evs.map(e => ({ m: minsOf(e.t), type: e.type }));
-  const bounds = [0, ...marks.map(x => x.m), 1440];
-  let strip = "";
-  for (let i = 0; i < bounds.length - 1; i++) {
-    const span = bounds[i + 1] - bounds[i];
-    if (span <= 0) continue;
-    const dir = i < marks.length
-      ? (marks[i].type === "HIGH" ? "up" : "down")
-      : (marks[marks.length - 1].type === "HIGH" ? "down" : "up");
-    strip += `<i class="${dir}" style="flex:${span}"></i>`;
-  }
-
   // The rhythm: each tide, with the halfway point in between.
   let rows = "";
   evs.forEach((e, i) => {
@@ -554,12 +532,6 @@ function renderDayDetail(key) {
       <div class="day-head">
         <div class="day-title">${title}</div>
         <div class="day-range">${evs.length} main tides<br>${lo.toFixed(2)} – ${hi.toFixed(2)} m</div>
-      </div>
-      <div class="strip">${strip}</div>
-      <div class="ax"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
-      <div class="legend">
-        <span><b style="background:#4fd1c5"></b>water coming in</span>
-        <span><b style="background:#f0c98a"></b>water going out</span>
       </div>
       <div class="rhy">${rows}</div>
     </div>`;

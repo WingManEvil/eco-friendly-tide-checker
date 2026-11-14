@@ -37,9 +37,7 @@ Type a date (or tap **Today** / **Tomorrow**) and the whole app follows it:
 - the graph jumps to midday of that date
 - the day card below shows that date in detail
 
-The day card has two parts. A **colour strip** for the full 24 hours: teal while water is
-coming in, sand while it is going out — so you can see the shape of the day at a glance.
-Under it, the **rhythm**: every high and low with its height, and between them the
+The day card lists the **rhythm**: every high and low with its height, and between them the
 **half-tide** moment with the water level at that time. Highest and lowest are labelled.
 
 Dragging the graph also updates the day card, so the picker and the graph are always
