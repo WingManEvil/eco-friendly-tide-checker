@@ -15,6 +15,21 @@ There is deliberately **no separate `.js` file**: on Windows, double-clicking a 
 Windows Script Host instead of a browser, which throws a confusing "syntax error". All the
 tide data is therefore baked inside `index.html`.
 
+## The tide curve
+
+The red line is **you**, and it never moves. The world slides past it.
+
+- Drag **right** → look further ahead
+- Drag **left** → look back
+- Leave it alone, or press **Back to now**, and it snaps to the present
+
+The curve is drawn from the KMFRI **hourly** table (24 readings a day, page 25 onwards),
+smoothed so it reads as a continuous line. Peaks and troughs are marked from the high/low
+table, which is the same source. The vertical scale is fixed at 0–4 m so it never jumps
+under your finger while dragging.
+
+Visible window is 36 hours — long enough to see three tide cycles, short enough to read.
+
 ## Where the numbers come from
 
 Official tide predictions published by **KMFRI** (Kenya Marine & Fisheries Research
