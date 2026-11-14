@@ -77,6 +77,50 @@
     font-weight:700; cursor:pointer; font-family:inherit}
   .snapbtn.hide{visibility:hidden}
 
+  /* ---- day picker + day detail ---- */
+  .pick-card{border:1px solid var(--line); border-radius:16px; background:rgba(10,58,77,.30);
+    padding:10px; display:flex; gap:8px; align-items:center}
+  #datePick{flex:1; min-width:0; background:rgba(255,255,255,.06); border:1px solid var(--line);
+    color:var(--ink); border-radius:11px; padding:11px 12px; font:inherit; font-size:14px;
+    color-scheme:dark}
+  #datePick:focus{outline:2px solid rgba(240,201,138,.45); outline-offset:1px}
+  .chip{background:rgba(240,201,138,.12); color:var(--sand); border:1px solid rgba(240,201,138,.30);
+    border-radius:999px; padding:10px 13px; font-size:12px; font-weight:700; letter-spacing:.04em;
+    cursor:pointer; font-family:inherit; white-space:nowrap}
+  .chip:active{background:rgba(240,201,138,.22)}
+
+  .day-card{border:1px solid var(--line); border-radius:20px;
+    background:linear-gradient(170deg,var(--card),rgba(10,58,77,.35)); padding:16px 16px 12px}
+  .day-head{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:13px}
+  .day-title{font-size:17px; font-weight:600; letter-spacing:-.01em}
+  .day-range{font-size:11px; color:var(--dim); text-align:right; line-height:1.4}
+
+  .strip{display:flex; height:11px; border-radius:99px; overflow:hidden; gap:2px; margin-bottom:7px}
+  .strip i{display:block; height:100%; border-radius:3px; min-width:2px}
+  .strip i.up{background:linear-gradient(180deg,#63ded1,#3aa9a2)}
+  .strip i.down{background:linear-gradient(180deg,#f2ce93,#c99b52)}
+  .ax{display:flex; justify-content:space-between; font-size:9.5px; color:var(--dim); letter-spacing:.05em}
+  .legend{display:flex; gap:14px; font-size:10.5px; color:var(--dim); margin:10px 0 14px}
+  .legend span{display:inline-flex; align-items:center; gap:5px}
+  .legend b{width:8px; height:8px; border-radius:50%; display:inline-block}
+
+  .rhy{position:relative; padding-left:18px}
+  .rhy::before{content:""; position:absolute; left:4px; top:8px; bottom:8px; width:2px;
+    background:rgba(255,255,255,.10); border-radius:2px}
+  .ev{position:relative; display:flex; align-items:baseline; gap:9px; padding:6px 0}
+  .ev::before{content:""; position:absolute; left:-18px; top:12px; width:8px; height:8px;
+    border-radius:50%; background:var(--dim); box-shadow:0 0 0 2px #0a3a4d}
+  .ev.high::before{background:var(--sand)}
+  .ev.low::before{background:var(--sea)}
+  .ev.half{opacity:.74; padding:2px 0}
+  .ev.half::before{width:5px; height:5px; left:-16.5px; top:13px; background:#5f8496; box-shadow:0 0 0 2px #0a3a4d}
+  .ev-time{font-size:16px; font-variant-numeric:tabular-nums; font-weight:500; min-width:76px}
+  .ev.half .ev-time{font-size:12.5px; font-weight:400}
+  .ev-tag{font-size:9px; letter-spacing:.13em; font-weight:800; text-transform:uppercase}
+  .ev-tag.h{color:var(--sand)} .ev-tag.l{color:var(--sea)} .ev-tag.m{color:var(--dim); letter-spacing:.08em}
+  .ev-h{margin-left:auto; font-size:12.5px; color:var(--dim); font-variant-numeric:tabular-nums}
+  .ev.half .ev-h{font-size:11.5px}
+
   footer{margin-top:26px; font-size:12px; line-height:1.7; color:#a8c6d4}
   footer b{color:var(--sand); font-weight:600}
   .err{background:rgba(242,161,161,.12); border:1px solid rgba(242,161,161,.3); color:#ffd9d9;
@@ -105,7 +149,15 @@
     </div>
   </div>
 
-  <div id="todayBlock"></div>
+  <div class="sect">Pick a day</div>
+  <div class="pick-card">
+    <input type="date" id="datePick" min="2026-01-01" max="2026-12-31">
+    <button class="chip" id="chipToday">Today</button>
+    <button class="chip" id="chipTomorrow">Tomorrow</button>
+  </div>
+
+  <div id="dayBlock" style="margin-top:14px"></div>
+
   <div id="weekBlock"></div>
 
   <footer>
@@ -226,10 +278,6 @@ function render() {
         <span>${next.type} ${clock(next.date)}</span>
       </div>
     </div>`;
-
-  document.getElementById("todayBlock").innerHTML =
-    `<div class="sect">Today</div>
-     <div class="rows">${todayRows || '<div class="row"><span class="mtr">nothing left today</span></div>'}</div>`;
 
   document.getElementById("weekBlock").innerHTML =
     `<div class="sect">Week ahead</div>
@@ -405,6 +453,7 @@ function updateReadout() {
     : `${dayFmt.format(new Date(c))} · ${clock(new Date(c))}`;
   valEl.textContent = `${v.toFixed(2)} m · ${dir}`;
   snapEl.classList.toggle("hide", isNow);
+  syncDayPanel(dayKey(new Date(c)));   // the day panel follows the graph
 }
 
 canvas.addEventListener("pointerdown", e => {
@@ -428,6 +477,113 @@ for (const ev of ["pointerup", "pointercancel"]) {
 }
 snapEl.addEventListener("click", () => { offset = 0; drawChart(); updateReadout(); });
 window.addEventListener("resize", drawChart);
+
+/* ============================================================
+   Pick a day — the date drives both the graph and the breakdown
+   ============================================================ */
+const pickEl = document.getElementById("datePick");
+const dayBlock = document.getElementById("dayBlock");
+const chipToday = document.getElementById("chipToday");
+const chipTomorrow = document.getElementById("chipTomorrow");
+let shownDay = null;
+
+const dayEvents = key => {
+  const row = TIDES[key];
+  if (!row) return [];
+  return [...row.high.map(e => ({ type: "HIGH", h: e.h, t: e.t })),
+          ...row.low.map(e => ({ type: "LOW", h: e.h, t: e.t }))]
+    .sort((a, b) => a.t.localeCompare(b.t));
+};
+
+const minsOf = t => { const p = t.split(":"); return Number(p[0]) * 60 + Number(p[1]); };
+const hhmmOf = m => {
+  const d = new Date(Date.UTC(2026, 0, 1, Math.floor(m / 60) % 24, Math.round(m % 60)));
+  return d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" })
+          .replace(" ", "").toLowerCase();
+};
+
+function renderDayDetail(key) {
+  const evs = dayEvents(key);
+  if (!evs.length) {
+    dayBlock.innerHTML = `<div class="day-card">
+      <div class="day-title">No tide data for that date</div>
+      <div class="day-range" style="text-align:left">The official 2026 table covers 1 Jan – 31 Dec 2026.</div></div>`;
+    return;
+  }
+
+  const heights = evs.map(e => e.h);
+  const lo = Math.min(...heights), hi = Math.max(...heights);
+  const title = dayFmt.format(new Date(key + "T12:00:00+03:00"));
+
+  // Colour strip for the whole day: teal while water is coming in, sand while going out.
+  const marks = evs.map(e => ({ m: minsOf(e.t), type: e.type }));
+  const bounds = [0, ...marks.map(x => x.m), 1440];
+  let strip = "";
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const span = bounds[i + 1] - bounds[i];
+    if (span <= 0) continue;
+    const dir = i < marks.length
+      ? (marks[i].type === "HIGH" ? "up" : "down")
+      : (marks[marks.length - 1].type === "HIGH" ? "down" : "up");
+    strip += `<i class="${dir}" style="flex:${span}"></i>`;
+  }
+
+  // The rhythm: each tide, with the halfway point in between.
+  let rows = "";
+  evs.forEach((e, i) => {
+    const isHigh = e.type === "HIGH";
+    const note = e.h === hi ? "highest" : e.h === lo ? "lowest" : "";
+    rows += `<div class="ev ${isHigh ? "high" : "low"}">
+      <span class="ev-time">${clock(new Date(key + "T" + e.t + ":00+03:00"))}</span>
+      <span class="ev-tag ${isHigh ? "h" : "l"}">${isHigh ? "High tide" : "Low tide"}</span>
+      <span class="ev-h">${e.h.toFixed(2)} m${note ? " · " + note : ""}</span></div>`;
+
+    const next = evs[i + 1];
+    if (next) {
+      const midM = Math.round((minsOf(e.t) + minsOf(next.t)) / 2);
+      const going = next.type === "HIGH" ? "coming in" : "going out";
+      rows += `<div class="ev half">
+        <span class="ev-time">${hhmmOf(midM)}</span>
+        <span class="ev-tag m">Half · ${going}</span>
+        <span class="ev-h">${((e.h + next.h) / 2).toFixed(2)} m</span></div>`;
+    }
+  });
+
+  dayBlock.innerHTML = `
+    <div class="day-card">
+      <div class="day-head">
+        <div class="day-title">${title}</div>
+        <div class="day-range">${evs.length} main tides<br>${lo.toFixed(2)} – ${hi.toFixed(2)} m</div>
+      </div>
+      <div class="strip">${strip}</div>
+      <div class="ax"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
+      <div class="legend">
+        <span><b style="background:#4fd1c5"></b>water coming in</span>
+        <span><b style="background:#f0c98a"></b>water going out</span>
+      </div>
+      <div class="rhy">${rows}</div>
+    </div>`;
+}
+
+function syncDayPanel(key) {
+  if (key === shownDay) return;
+  shownDay = key;
+  pickEl.value = key;
+  renderDayDetail(key);
+}
+
+function goToDay(key) {
+  offset = new Date(key + "T12:00:00+03:00").getTime() - Date.now();
+  clampOffset();
+  shownDay = null;
+  drawChart(); updateReadout();
+}
+
+pickEl.addEventListener("change", () => { if (pickEl.value) goToDay(pickEl.value); });
+chipToday.addEventListener("click", () => {
+  offset = 0; shownDay = null; drawChart(); updateReadout();
+});
+chipTomorrow.addEventListener("click", () => goToDay(addDays(dayKey(new Date()), 1)));
 
 drawChart();
 updateReadout();

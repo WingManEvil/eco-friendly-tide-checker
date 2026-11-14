@@ -30,6 +30,24 @@ under your finger while dragging.
 
 Visible window is 36 hours — long enough to see three tide cycles, short enough to read.
 
+## Pick a day
+
+Type a date (or tap **Today** / **Tomorrow**) and the whole app follows it:
+
+- the graph jumps to midday of that date
+- the day card below shows that date in detail
+
+The day card has two parts. A **colour strip** for the full 24 hours: teal while water is
+coming in, sand while it is going out — so you can see the shape of the day at a glance.
+Under it, the **rhythm**: every high and low with its height, and between them the
+**half-tide** moment with the water level at that time. Highest and lowest are labelled.
+
+Dragging the graph also updates the day card, so the picker and the graph are always
+showing the same moment.
+
+Some dates have only three tides — the booklet prints `--:--` when a high or low falls just
+outside that calendar day, and the app says "3 main tides" rather than inventing a fourth.
+
 ## Where the numbers come from
 
 Official tide predictions published by **KMFRI** (Kenya Marine & Fisheries Research
