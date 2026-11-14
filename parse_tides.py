@@ -1,0 +1,91 @@
+"""
+Parse the KMFRI 2026 official tide predictions (Mombasa) into machine-readable data.
+
+Source: Kenya Marine & Fisheries Research Institute (KMFRI)
+        "2026 HIGH-LOW AND HOURLY TIDE PREDICTIONS FOR MOMBASA AND LAMU"
+        Generated with T_TIDE from real Mombasa gauge observations.
+        Heights are metres above lowest astronomical tide, local time GMT+3.
+
+Run:  pdftotext -layout kmfri-2026.pdf kmfri.txt && python parse_tides.py
+Outputs: tides.json  +  tides.js  (same data, tides.js makes the app work offline)
+"""
+
+import json
+import re
+
+MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+          "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"]
+
+DAY_ROW = re.compile(r"^(MON|TUE|WED|THU|FRI|SAT|SUN)\s+(\d{1,2})\s+(.*)$")
+MONTH_HDR = re.compile(r"^\s*(" + "|".join(MONTHS) + r")\s+2026\s*$")
+EVENT = re.compile(r"(\d{1,2}:\d{2}|--:--)\s+(\d+\.\d{2}|----)")
+
+
+def parse(path="kmfri.txt"):
+    lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+
+    # The booklet repeats every section for Lamu after Mombasa. Stay inside Mombasa.
+    start = next(i for i, l in enumerate(lines)
+                 if "High-Low Tide Predictions for Mombasa" in l)
+    end = next(i for i, l in enumerate(lines)
+               if "High-Low Tide Predictions for Lamu" in l)
+
+    out, month, skipped = {}, None, []
+    for line in lines[start:end]:
+        m = MONTH_HDR.match(line)
+        if m:
+            month = MONTHS.index(m.group(1)) + 1
+            continue
+        if not month:
+            continue
+        d = DAY_ROW.match(line.strip())
+        if not d:
+            continue
+
+        day = int(d.group(2))
+        events = EVENT.findall(d.group(3))
+        if len(events) != 4:
+            skipped.append((month, day, d.group(3).strip()))
+            continue
+
+        # order in the booklet: high morning, high afternoon, low morning, low afternoon
+        highs = [{"t": t, "h": float(h)} for t, h in events[0:2] if t != "--:--"]
+        lows = [{"t": t, "h": float(h)} for t, h in events[2:4] if t != "--:--"]
+        if len(highs) + len(lows) < 2:
+            skipped.append((month, day, "too few tides"))
+            continue
+
+        out["%04d-%02d-%02d" % (2026, month, day)] = {
+            "high": sorted(highs, key=lambda e: e["t"]),
+            "low": sorted(lows, key=lambda e: e["t"]),
+        }
+
+    return out, skipped
+
+
+if __name__ == "__main__":
+    data, skipped = parse()
+    print("days parsed:", len(data))
+    print("rows skipped:", len(skipped))
+    for s in skipped[:5]:
+        print("   ", s)
+
+    # --- sanity checks ---
+    assert len(data) == 365, "expected 365 days of 2026, got %d" % len(data)
+    for k, v in data.items():
+        assert 2 <= len(v["high"]) + len(v["low"]) <= 4, k
+        for e in v["high"] + v["low"]:
+            assert 0.0 <= e["h"] <= 4.6, (k, e)
+            hh, mm = e["t"].split(":")
+            assert 0 <= int(hh) < 24 and 0 <= int(mm) < 60, (k, e)
+
+    json.dump(data, open("tides.json", "w"), indent=0, sort_keys=True)
+    open("tides.js", "w").write(
+        "// Generated from the official KMFRI 2026 Mombasa tide predictions.\n"
+        "// Heights in metres above lowest astronomical tide, local time GMT+3.\n"
+        "const TIDES = " + json.dumps(data) + ";\n"
+    )
+
+    print("\nspot check — 14 Nov 2026 (Mombasa, official):", json.dumps(data["2026-11-14"]))
+    print("spot check — 01 Jan 2026 (Mombasa, official):", json.dumps(data["2026-01-01"]))
+    print("\nwrote tides.json and tides.js")
