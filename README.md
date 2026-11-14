@@ -15,6 +15,15 @@ There is deliberately **no separate `.js` file**: on Windows, double-clicking a 
 Windows Script Host instead of a browser, which throws a confusing "syntax error". All the
 tide data is therefore baked inside `index.html`.
 
+## The top card
+
+One job: tell you what time it is now, and which way the water is moving.
+
+- **Water coming in** (teal, arrow up) → a **high** tide is approaching
+- **Water going out** (sand, arrow down) → a **low** tide is approaching
+
+The next tide time sits directly under the words, so there is nothing to work out.
+
 ## The tide curve
 
 The red line is **you**, and it never moves. The world slides past it.
