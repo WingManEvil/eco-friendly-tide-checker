@@ -1,9 +1,51 @@
-# Diani Tide
+# Eco Friendly Tide Checker
 
-A dead-simple high/low tide app for Diani Beach, Kenya.
+A dead-simple tide tool for **Eco Friendly Events Diani**, plus a planner that tells the
+crew whether a beach event is actually possible on the tide they've been asked for.
 
-One screen. Next tide, how long until it, today's four tides, and the week ahead.
-No map, no adverts, no 14-day chart, no account.
+One file. Works offline. No accounts, no adverts, no API keys.
+
+The app has four parts: **Now** (time + which way the water is moving), **Plan a beach event**
+(does the tide allow this event, and when do we build), the **tide curve** (drag through the
+year), and **Pick a day** (any date in detail).
+
+## Plan a beach event
+
+This is the working part. Enter the client's date and start time, how long setup takes, and how
+long the event runs. The planner answers two questions:
+
+1. **Is it possible?** — green, amber or red, based on where the water sits at the start *and*
+   where it will be when the event ends.
+2. **When does the crew start?** — the latest sensible build time that still finishes before
+   the client's start.
+
+The rule behind it is the one the crew already uses: **you can get onto the beach as the high
+tide turns and starts pulling back, and you keep it for roughly one full tide cycle** until the
+water returns.
+
+So the planner also shows:
+
+- **Most sand (low)** — the low tide nearest the event, i.e. the best moment of the day
+- **Water returns** — the next high tide; nothing should still be standing after this
+
+Every warning is written in plain words, e.g. *"By 10:00pm the water is back up to 2.89 m —
+practically high tide, right where your guests are standing."*
+
+The small chart inside the verdict draws that day's tide with the **SETUP** and **EVENT**
+blocks shaded, so you can see at a glance whether the work sits on dry sand.
+
+### The thresholds
+
+Levels are compared against that day's own low–high range, so "high" means high *for that day*:
+
+| Check | Green | Amber | Red |
+|---|---|---|---|
+| Water at the client's start | bottom third | middle | top third |
+| Water at the event end | below 60% | 60–85% | above 85% |
+| Crew start vs sand available | after the beach opens | — | before it opens |
+| Setup finish vs event start | before | — | after the event begins |
+
+Any red makes the whole verdict red. Amber anywhere makes it amber.
 
 ## How to open it
 
