@@ -7,8 +7,13 @@ No map, no adverts, no 14-day chart, no account.
 
 ## How to open it
 
-Double-click `index.html`. That's it — it works offline, with no server and no internet
-connection needed.
+Open `index.html` in any browser — drag it onto an open Chrome/Edge window, or press
+**Ctrl+O** in the browser and pick the file. It works offline, with no server and no
+internet connection.
+
+There is deliberately **no separate `.js` file**: on Windows, double-clicking a `.js` opens
+Windows Script Host instead of a browser, which throws a confusing "syntax error". All the
+tide data is therefore baked inside `index.html`.
 
 ## Where the numbers come from
 
@@ -48,11 +53,11 @@ download fails loudly instead of shipping wrong tides.
 
 | File | What it is |
 |---|---|
-| `index.html` | The whole app — one file, no build step |
-| `tides.js` | The 2026 predictions, generated. Loaded as a plain script so the app works offline |
-| `tides.json` | Same data as JSON, for when this becomes a real backend |
+| `index.html` | The whole app — one file, data included, no build step |
+| `tides.json` | The same predictions as JSON, for when this becomes a real backend |
 | `parse_tides.py` | PDF → data. Re-run when a new yearly booklet is published |
 | `kmfri-2026.pdf` | The original source document |
+| `kmfri.txt` | Text dump of the PDF that the parser reads |
 
 ## Known limits
 
