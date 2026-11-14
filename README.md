@@ -43,13 +43,17 @@ party and pack away — sits on dry sand.
 
 ### The thresholds
 
-Levels are compared against that day's own low–high range, so "high" means high *for that day*:
+Every level is compared against **the tide cycle the event sits in** — the low that runs into
+the next high — not the whole day. That matters: on 12 Dec the morning high was 3.30 m, so the
+evening's 2.75 m high looked harmless by comparison. It is not. An event ending at 2.55 m is
+20 cm under the peak, and must fail.
 
 | Check | Green | Amber | Red |
 |---|---|---|---|
-| Water at the client's start | bottom third | middle | top third |
-| Water at the event end | below 60% | 60–85% | above 85% |
-| Water arrives before the event ends | — | — | always red |
+| Tide at the client's start | ≤ 35% of the rise | 35–65% | > 65% |
+| Tide when guests leave | < 65% | 65–85% | ≥ 85% |
+| Tide when packing ends | < 82% | 82–92% | ≥ 92% |
+| Crew off vs water returning | > 45 min | 20–45 min | < 20 min, or the water arrives first |
 | Crew start vs sand available | after the beach opens | — | before it opens |
 | Setup finish vs event start | before | — | after the event begins |
 

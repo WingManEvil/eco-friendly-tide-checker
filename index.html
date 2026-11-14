@@ -369,36 +369,40 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
   const prevHigh = [...highs].reverse().find(e => e.date <= start) || null;
   const nextHigh = highs.find(e => e.date > start) || null;
 
-  const dayEv = eventsFor(day);
-  const hs = dayEv.map(e => e.height);
-  const lo = hs.length ? Math.min(...hs) : 0;
-  const hi = hs.length ? Math.max(...hs) : 4;
-  const span = Math.max(0.2, hi - lo);
-  const fracAt = t => Math.max(0, Math.min(1, (valueAt(t) - lo) / span));
+  // Measure against the tide cycle the event actually sits in — the low that runs into the
+  // next high — not the whole day's range. On 12 Dec the morning high was 3.30 m, which made
+  // the evening's 2.75 m high look harmless. It is not: 2.55 m is 20 cm under the peak.
+  const cycleLow = [...around].reverse().find(e => e.type === "LOW" && (!nextHigh || e.date < nextHigh.date)) || null;
+  const loLevel = cycleLow ? cycleLow.height : (nextHigh ? Math.max(0, nextHigh.height - 2.5) : 0);
+  const cycleSpan = nextHigh ? Math.max(0.3, nextHigh.height - loLevel) : 2.5;
+  const rel = lvl => Math.max(0, Math.min(1, (lvl - loLevel) / cycleSpan));
 
   const levelStart = valueAt(start.getTime());
-  const fracStart = fracAt(start.getTime());
   const levelEnd = valueAt(end.getTime());
-  const fracEnd = fracAt(end.getTime());
   const levelPack = valueAt(fullEnd.getTime());
-  const fracPack = fracAt(fullEnd.getTime());
   const rising = valueAt(start.getTime() + 10 * 60000) > levelStart;
 
-  // his rule: high water = warning, low water = approved
-  const state = fracStart <= 0.35 ? "LOW" : fracStart >= 0.65 ? "HIGH" : "MID";
+  const relStart = rel(levelStart);
+  const relEnd = rel(levelEnd);
+  const relPack = rel(levelPack);
 
   const beachOpen = prevHigh ? new Date(prevHigh.date.getTime() + 15 * 60000) : null;
   const beachCloses = nextHigh ? nextHigh.date : null;
+  const crewGapMin = beachCloses ? (beachCloses - fullEnd) / 60000 : 9999;
+
+  // low water = approved, high water = warning (his rule)
+  const state = relStart <= 0.35 ? "LOW" : relStart <= 0.65 ? "MID" : "HIGH";
 
   const notes = [];
   let level = "good";
+  const worse = l => { if (l === "bad" || (l === "warn" && level === "good")) level = l; };
 
   if (state === "MID") {
-    level = "warn";
-    notes.push(`At ${clock(start)} the water is about halfway (${levelStart.toFixed(2)} m) — less beach than you would want.`);
+    worse("warn");
+    notes.push(`At ${clock(start)} the tide is already ${Math.round(relStart * 100)}% of the way up to high water — half the beach is gone.`);
   } else if (state === "HIGH") {
-    level = "bad";
-    notes.push(`At ${clock(start)} the water is near high (${levelStart.toFixed(2)} m). The sand you need will be under water.`);
+    worse("bad");
+    notes.push(`At ${clock(start)} the tide is ${Math.round(relStart * 100)}% of the way up to high water. The sand you need is under it.`);
   }
 
   const crewBlocked = beachOpen && needStart < beachOpen;
@@ -407,28 +411,42 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
     notes.push(`Setup would have to start at ${clock(needStart)}, before the beach is open (${clock(beachOpen)}). Build later, or move the event later.`);
   }
 
-  // The crew is still on the beach after the guests leave — that is when the water catches people.
+  // The crew is still on the sand after the guests leave — that is when the water catches people.
   const waterReturns = beachCloses && fullEnd > beachCloses;
-  if (waterReturns) {
-    level = "bad";
-    notes.push(`The water comes back at ${clock(beachCloses)} — the crew would still be packing down until ${clock(fullEnd)}.`);
-  } else if (fracEnd >= 0.85) {
-    level = "bad";
-    notes.push(`By ${clock(end)} the water is back up to ${levelEnd.toFixed(2)} m — practically high tide, right where your guests are standing.`);
-  } else if (fracEnd >= 0.6) {
-    if (level === "good") level = "warn";
-    notes.push(`By ${clock(end)} the water is back up to ${levelEnd.toFixed(2)} m — the beach shrinks during your event.`);
+
+  if (!waterReturns && relEnd >= 0.85) {
+    worse("bad");
+    notes.push(`By ${clock(end)} the tide is ${Math.round(relEnd * 100)}% of the way to high water — the sea will be where the party is.`);
+  } else if (!waterReturns && relEnd >= 0.65) {
+    worse("warn");
+    notes.push(`By ${clock(end)} the tide is ${Math.round(relEnd * 100)}% of the way to high water — the beach gets tight.`);
   }
 
-  if (!waterReturns && fracPack >= 0.8) {
-    if (level !== "bad") level = "warn";
-    notes.push(`Packing down finishes at ${clock(fullEnd)} with the water at ${levelPack.toFixed(2)} m — last out, watch the kit.`);
+  if (waterReturns) {
+    worse("bad");
+    notes.push(`The water comes back at ${clock(beachCloses)} — the crew would still be packing down until ${clock(fullEnd)}.`);
+  } else if (crewGapMin < 20) {
+    worse("bad");
+    notes.push(`The crew gets off the beach at ${clock(fullEnd)}, only ${Math.round(crewGapMin)} minutes before the water returns at ${clock(beachCloses)}.`);
+  } else if (crewGapMin < 45) {
+    worse("warn");
+    notes.push(`The crew gets off at ${clock(fullEnd)}, ${Math.round(crewGapMin)} minutes before the water returns. Tight.`);
+  }
+
+  if (!waterReturns) {
+    // packing down is fast and forgiving — only flag it when the water is genuinely on you
+    if (relPack >= 0.92) {
+      worse("bad");
+      notes.push(`Packing ends with the tide ${Math.round(relPack * 100)}% of the way to high water — the kit would be in the sea.`);
+    } else if (relPack >= 0.82) {
+      worse("warn");
+      notes.push(`Packing ends with the tide ${Math.round(relPack * 100)}% of the way to high water — watch the kit.`);
+    }
   }
 
   // When should the crew actually start?
   let recStart = needStart;
   if (beachOpen && needStart < beachOpen) recStart = beachOpen;
-  else if (beachOpen && fracAt(needStart.getTime()) > 0.5) recStart = beachOpen;
   const recEnd = new Date(recStart.getTime() + setupH * HOUR);
 
   if (recEnd > start) {
@@ -459,7 +477,7 @@ function renderPlan() {
   const r = planEvent(day, pTime.value || "18:00", Number(pSetup.value), Number(pLen.value), Number(pPack.value));
   const icon = r.level === "good" ? ICON_OK : r.level === "warn" ? ICON_WARN : ICON_BAD;
   const tideWord = r.state === "LOW" ? "low" : r.state === "MID" ? "halfway" : "high";
-  const sub = `Water at ${clock(r.start)} is ${r.levelStart.toFixed(2)} m and ${r.rising ? "coming in" : "going out"} — that is ${tideWord}.`;
+  const sub = `Water at ${clock(r.start)} is ${r.levelStart.toFixed(2)} m and ${r.rising ? "coming in" : "going out"} — ${tideWord} water.`;
   const lowLine = (r.level !== "good" && r.nearestLow)
     ? `<li>The most beach is at low tide, <b>${clock(r.nearestLow.date)}</b>. If the client can move the time, start within two hours of that.</li>`
     : "";
