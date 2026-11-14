@@ -180,6 +180,14 @@
           <option value="8">8 hours</option>
         </select>
       </label>
+      <label class="field"><span>Pack down needs</span>
+        <select id="pPack">
+          <option value="1" selected>1 hour</option>
+          <option value="2">2 hours</option>
+          <option value="3">3 hours</option>
+          <option value="4">4 hours</option>
+        </select>
+      </label>
     </div>
     <div id="planOut"></div>
   </section>
@@ -346,11 +354,13 @@ const pDate = document.getElementById("pDate");
 const pTime = document.getElementById("pTime");
 const pSetup = document.getElementById("pSetup");
 const pLen = document.getElementById("pLen");
+const pPack = document.getElementById("pPack");
 const planOut = document.getElementById("planOut");
 
-function planEvent(day, hhmm, setupH, lenH) {
+function planEvent(day, hhmm, setupH, lenH, packH) {
   const start = at(day, hhmm);
-  const end = new Date(start.getTime() + lenH * HOUR);
+  const end = new Date(start.getTime() + lenH * HOUR);          // guests leave
+  const fullEnd = new Date(end.getTime() + packH * HOUR);       // crew leaves
   const needStart = new Date(start.getTime() - setupH * HOUR);
 
   // 15 minutes after the peak is when the water actually starts pulling back
@@ -370,6 +380,8 @@ function planEvent(day, hhmm, setupH, lenH) {
   const fracStart = fracAt(start.getTime());
   const levelEnd = valueAt(end.getTime());
   const fracEnd = fracAt(end.getTime());
+  const levelPack = valueAt(fullEnd.getTime());
+  const fracPack = fracAt(fullEnd.getTime());
   const rising = valueAt(start.getTime() + 10 * 60000) > levelStart;
 
   // his rule: high water = warning, low water = approved
@@ -395,16 +407,22 @@ function planEvent(day, hhmm, setupH, lenH) {
     notes.push(`Setup would have to start at ${clock(needStart)}, before the beach is open (${clock(beachOpen)}). Build later, or move the event later.`);
   }
 
-  const waterReturns = beachCloses && end > beachCloses;
+  // The crew is still on the beach after the guests leave — that is when the water catches people.
+  const waterReturns = beachCloses && fullEnd > beachCloses;
   if (waterReturns) {
     level = "bad";
-    notes.push(`The water comes back at ${clock(beachCloses)}, before your event ends at ${clock(end)}.`);
+    notes.push(`The water comes back at ${clock(beachCloses)} — the crew would still be packing down until ${clock(fullEnd)}.`);
   } else if (fracEnd >= 0.85) {
     level = "bad";
     notes.push(`By ${clock(end)} the water is back up to ${levelEnd.toFixed(2)} m — practically high tide, right where your guests are standing.`);
   } else if (fracEnd >= 0.6) {
     if (level === "good") level = "warn";
     notes.push(`By ${clock(end)} the water is back up to ${levelEnd.toFixed(2)} m — the beach shrinks during your event.`);
+  }
+
+  if (!waterReturns && fracPack >= 0.8) {
+    if (level !== "bad") level = "warn";
+    notes.push(`Packing down finishes at ${clock(fullEnd)} with the water at ${levelPack.toFixed(2)} m — last out, watch the kit.`);
   }
 
   // When should the crew actually start?
@@ -430,15 +448,15 @@ function planEvent(day, hhmm, setupH, lenH) {
       ? (state === "MID" ? "Half tide — workable with care" : "Workable, but the water turns on you")
     : "Low tide — approved";
 
-  return { start, end, needStart, recStart, recEnd, beachOpen, beachCloses,
-           level, state, headline, notes, levelStart, rising, nearestLow, setupH, lenH, day };
+  return { start, end, fullEnd, needStart, recStart, recEnd, beachOpen, beachCloses,
+           level, state, headline, notes, levelStart, rising, nearestLow, setupH, lenH, packH, day };
 }
 
 function renderPlan() {
   const day = pDate.value;
   if (!day) { planOut.innerHTML = ""; return; }
 
-  const r = planEvent(day, pTime.value || "18:00", Number(pSetup.value), Number(pLen.value));
+  const r = planEvent(day, pTime.value || "18:00", Number(pSetup.value), Number(pLen.value), Number(pPack.value));
   const icon = r.level === "good" ? ICON_OK : r.level === "warn" ? ICON_WARN : ICON_BAD;
   const tideWord = r.state === "LOW" ? "low" : r.state === "MID" ? "halfway" : "high";
   const sub = `Water at ${clock(r.start)} is ${r.levelStart.toFixed(2)} m and ${r.rising ? "coming in" : "going out"} — that is ${tideWord}.`;
@@ -454,6 +472,8 @@ function renderPlan() {
       <div class="times">
         <div class="trow"><span>Start setup</span><b>${clock(r.recStart)}</b></div>
         <div class="trow"><span>Setup finished</span><b>${clock(r.recEnd)}</b></div>
+        <div class="trow"><span>Guests leave</span><b>${clock(r.end)}</b></div>
+        <div class="trow"><span>Crew off beach</span><b>${clock(r.fullEnd)}</b></div>
         <div class="trow"><span>Most sand (low)</span><b>${r.nearestLow ? clock(r.nearestLow.date) : "—"}</b></div>
         <div class="trow"><span>Water returns</span><b>${r.beachCloses ? clock(r.beachCloses) : "—"}</b></div>
       </div>
@@ -506,6 +526,7 @@ function drawPlanCurve(r) {
   };
   block(r.recStart, r.recEnd, "rgba(232,201,138,.30)", "SETUP");
   block(r.start, r.end, "rgba(95,191,106,.32)", "EVENT");
+  block(r.end, r.fullEnd, "rgba(169,195,184,.34)", "PACK");
 
   ctx.beginPath();
   for (let px = 0; px <= pw; px++) {
@@ -542,7 +563,7 @@ function drawPlanCurve(r) {
   }
 }
 
-[pDate, pTime, pSetup, pLen].forEach(el => el.addEventListener("change", renderPlan));
+[pDate, pTime, pSetup, pLen, pPack].forEach(el => el.addEventListener("change", renderPlan));
 [pDate, pTime].forEach(el => el.addEventListener("input", renderPlan));
 
 /* ============================================================

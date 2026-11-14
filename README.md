@@ -11,8 +11,8 @@ year), and **Pick a day** (any date in detail).
 
 ## Plan a beach event
 
-This is the working part. Enter the client's date and start time, how long setup takes, and how
-long the event runs. The planner answers two questions:
+This is the working part. Enter the client's date and start time, how long setup takes, how long
+the event runs, and how long **packing down** takes. The planner answers two questions:
 
 1. **Is it possible?** — green, amber or red, based on where the water sits at the start *and*
    where it will be when the event ends.
@@ -25,14 +25,21 @@ water returns.
 
 So the planner also shows:
 
+- **Guests leave** / **Crew off beach** — the event end, and the event end plus pack-down
 - **Most sand (low)** — the low tide nearest the event, i.e. the best moment of the day
 - **Water returns** — the next high tide; nothing should still be standing after this
+
+Pack-down is a real constraint, not decoration: the crew is still on the sand after the guests
+go home, and that is when the water catches people. A 4-hour event that ends at 6pm with two
+hours of pack-down keeps the crew there until 8pm — if the water returns at 7pm, the planner
+marks the whole thing red.
 
 Every warning is written in plain words, e.g. *"By 10:00pm the water is back up to 2.89 m —
 practically high tide, right where your guests are standing."*
 
-The small chart inside the verdict draws that day's tide with the **SETUP** and **EVENT**
-blocks shaded, so you can see at a glance whether the work sits on dry sand.
+The small chart inside the verdict draws that day's tide with **SETUP** (sand), **EVENT**
+(green) and **PACK** (grey) shaded, so you can see at a glance whether the whole job — build,
+party and pack away — sits on dry sand.
 
 ### The thresholds
 
