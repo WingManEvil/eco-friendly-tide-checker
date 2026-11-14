@@ -42,6 +42,7 @@ Levels are compared against that day's own low–high range, so "high" means hig
 |---|---|---|---|
 | Water at the client's start | bottom third | middle | top third |
 | Water at the event end | below 60% | 60–85% | above 85% |
+| Water arrives before the event ends | — | — | always red |
 | Crew start vs sand available | after the beach opens | — | before it opens |
 | Setup finish vs event start | before | — | after the event begins |
 

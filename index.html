@@ -397,7 +397,7 @@ function planEvent(day, hhmm, setupH, lenH) {
 
   const waterReturns = beachCloses && end > beachCloses;
   if (waterReturns) {
-    if (level !== "bad") level = "warn";
+    level = "bad";
     notes.push(`The water comes back at ${clock(beachCloses)}, before your event ends at ${clock(end)}.`);
   } else if (fracEnd >= 0.85) {
     level = "bad";
