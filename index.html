@@ -85,6 +85,14 @@
   .vicon{display:flex; align-items:center; justify-content:center; width:30px; height:30px;
     border-radius:50%; background:rgba(0,0,0,.22); flex:0 0 auto}
   .vsub{font-size:13px; color:var(--ink); opacity:.85; margin-top:7px}
+  .trybar{display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-top:10px;
+    padding:9px 10px; border-radius:12px; background:rgba(0,0,0,.20)}
+  .trylbl{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
+    font-weight:800; flex:0 0 100%}
+  .trychip{background:rgba(154,209,75,.16); color:var(--lime); border:1px solid rgba(154,209,75,.42);
+    border-radius:999px; padding:7px 11px; font-family:'Manrope',sans-serif; font-size:12px;
+    font-weight:800; cursor:pointer; font-variant-numeric:tabular-nums}
+  .trychip:active{background:rgba(154,209,75,.32)}
   .times{display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-top:14px}
   .trow{display:flex; flex-direction:column; gap:1px}
   .trow span{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700}
@@ -513,12 +521,32 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
            level, state, headline, notes, levelStart, rising, nearestLow, setupH, lenH, packH, day };
 }
 
+// When a time doesn't work, find the nearest ones that do — so the crew can go back to the
+// client with a concrete alternative instead of "not possible".
+function alternativeTimes(day, setupH, lenH, packH, currentStart) {
+  const good = [], warn = [];
+  for (let m = 6 * 60; m <= 23 * 60; m += 30) {
+    const t = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+    if (at(day, t).getTime() === currentStart.getTime()) continue;
+    const r = planEvent(day, t, setupH, lenH, packH);
+    if (r.level === "good") good.push({ t, m });
+    else if (r.level === "warn") warn.push({ t, m });
+  }
+  const pool = good.length ? good : warn;
+  const req = currentStart.getTime();
+  return pool
+    .sort((a, b) => Math.abs(at(day, a.t) - req) - Math.abs(at(day, b.t) - req))
+    .slice(0, 3)
+    .sort((a, b) => a.m - b.m);
+}
+
 function renderPlan() {
   const clock = clock24;                 // results are shown in 24-hour time too
   const day = pDate.value;
   if (!day) { planOut.innerHTML = ""; return; }
 
-  const r = planEvent(day, planTime(), Number(pSetup.value), Number(pLen.value), Number(pPack.value));
+  const setupH = Number(pSetup.value), lenH = Number(pLen.value), packH = Number(pPack.value);
+  const r = planEvent(day, planTime(), setupH, lenH, packH);
   const icon = r.level === "good" ? ICON_OK : r.level === "warn" ? ICON_WARN : ICON_BAD;
   const tideWord = r.state === "LOW" ? "low" : r.state === "MID" ? "halfway" : "high";
   const sub = `Water at ${clock(r.start)} is ${r.levelStart.toFixed(2)} m and ${r.rising ? "coming in" : "going out"} — ${tideWord} water.`;
@@ -526,9 +554,20 @@ function renderPlan() {
     ? `<li>The most beach is at low tide, <b>${clock(r.nearestLow.date)}</b>. If the client can move the time, start within two hours of that.</li>`
     : "";
 
+  let tryBar = "";
+  if (r.level !== "good") {
+    const alts = alternativeTimes(day, setupH, lenH, packH, r.start);
+    if (alts.length) {
+      tryBar = `<div class="trybar"><span class="trylbl">Try a different start</span>${
+        alts.map(a => `<button class="trychip" data-h="${a.t.slice(0, 2)}" data-m="${a.t.slice(3)}">${a.t}</button>`).join("")
+      }</div>`;
+    }
+  }
+
   planOut.innerHTML = `
     <div class="verdict ${r.level}">
       <div class="vhead"><span class="vicon">${icon}</span>${r.headline}</div>
+      ${tryBar}
       <div class="vsub">${sub}</div>
 
       <div class="times">
@@ -627,6 +666,15 @@ function drawPlanCurve(r) {
 
 [pDate, pTimeH, pTimeM, pSetup, pLen, pPack].forEach(el => el.addEventListener("change", renderPlan));
 [pDate].forEach(el => el.addEventListener("input", renderPlan));
+
+// tapping a suggested time applies it and re-runs the check
+planOut.addEventListener("click", e => {
+  const chip = e.target.closest(".trychip");
+  if (!chip) return;
+  pTimeH.value = chip.dataset.h;
+  pTimeM.value = chip.dataset.m;
+  renderPlan();
+});
 
 /* ============================================================
    Tide curve — the red line is YOU and it never moves.
