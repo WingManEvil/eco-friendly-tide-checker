@@ -93,6 +93,7 @@
     border-radius:999px; padding:7px 11px; font-family:'Manrope',sans-serif; font-size:12px;
     font-weight:800; cursor:pointer; font-variant-numeric:tabular-nums}
   .trychip:active{background:rgba(154,209,75,.32)}
+  .trychip.on{background:var(--lime); color:#0B2420; border-color:var(--lime)}
   .times{display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-top:14px}
   .trow{display:flex; flex-direction:column; gap:1px}
   .trow span{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700}
@@ -523,16 +524,15 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
 
 // When a time doesn't work, find the nearest ones that do — so the crew can go back to the
 // client with a concrete alternative instead of "not possible".
-function alternativeTimes(day, setupH, lenH, packH, currentStart) {
+function alternativeTimes(day, setupH, lenH, packH, currentStart, allowWarn) {
   const good = [], warn = [];
   for (let m = 6 * 60; m <= 23 * 60; m += 30) {
     const t = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
-    if (at(day, t).getTime() === currentStart.getTime()) continue;
     const r = planEvent(day, t, setupH, lenH, packH);
     if (r.level === "good") good.push({ t, m });
     else if (r.level === "warn") warn.push({ t, m });
   }
-  const pool = good.length ? good : warn;
+  const pool = good.length ? good : (allowWarn ? warn : []);
   const req = currentStart.getTime();
   return pool
     .sort((a, b) => Math.abs(at(day, a.t) - req) - Math.abs(at(day, b.t) - req))
@@ -554,14 +554,16 @@ function renderPlan() {
     ? `<li>The most beach is at low tide, <b>${clock(r.nearestLow.date)}</b>. If the client can move the time, start within two hours of that.</li>`
     : "";
 
+  // Suggestions stay on screen after a tap so Eco Friendly can compare timings side by side.
+  const alts = alternativeTimes(day, setupH, lenH, packH, r.start, r.level !== "good");
+  const chosen = planTime();
+  const showTry = r.level === "good" ? alts.length > 1 : alts.length >= 1;
   let tryBar = "";
-  if (r.level !== "good") {
-    const alts = alternativeTimes(day, setupH, lenH, packH, r.start);
-    if (alts.length) {
-      tryBar = `<div class="trybar"><span class="trylbl">Try a different start</span>${
-        alts.map(a => `<button class="trychip" data-h="${a.t.slice(0, 2)}" data-m="${a.t.slice(3)}">${a.t}</button>`).join("")
-      }</div>`;
-    }
+  if (showTry) {
+    const lbl = r.level === "good" ? "Other times that work" : "Try a different start";
+    tryBar = `<div class="trybar"><span class="trylbl">${lbl}</span>${
+      alts.map(a => `<button class="trychip${a.t === chosen ? " on" : ""}" data-h="${a.t.slice(0, 2)}" data-m="${a.t.slice(3)}">${a.t}</button>`).join("")
+    }</div>`;
   }
 
   planOut.innerHTML = `
