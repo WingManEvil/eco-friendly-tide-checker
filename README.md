@@ -48,9 +48,10 @@ marks the whole thing red.
 Every warning is written in plain words, e.g. *"By 10:00pm the water is back up to 2.89 m —
 practically high tide, right where your guests are standing."*
 
-The small chart inside the verdict draws that day's tide with **SETUP** (sand), **EVENT**
-(green) and **PACK** (grey) shaded, so you can see at a glance whether the whole job — build,
-party and pack away — sits on dry sand.
+The small chart inside the verdict shows **36 hours of tide** — a full day before the event and
+12 hours after it — with **SETUP** (sand), **EVENT** (green) and **PACK** (grey) shaded, so you
+can see at a glance whether the whole job — build, party and pack away — sits on dry sand.
+Swipe it left or right to look further out; changing any input re-centres it on the event.
 
 ### The thresholds
 

@@ -117,6 +117,7 @@
   .chart-foot{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px}
   .chart-foot span{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:#CFE3DA;
     margin-left:auto; font-weight:800}
+  #planCurve{touch-action:pan-y; cursor:grab}
   .snapbtn{background:rgba(154,209,75,.14); color:var(--lime); border:1px solid rgba(154,209,75,.4);
     border-radius:999px; padding:5px 12px; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
     font-weight:800; cursor:pointer; font-family:inherit}
@@ -518,6 +519,16 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
     ? lows.reduce((b, l) => (!b || Math.abs(l.date - start) < Math.abs(b.date - start)) ? l : b, null)
     : null;
 
+  // A clean plan must still say something — an empty card looks like the app broke.
+  if (level === "good") {
+    const gapH = beachCloses ? (beachCloses.getTime() - fullEnd.getTime()) / HOUR : null;
+    const gapTxt = gapH === null ? "" :
+      gapH >= 1.5 ? `${Math.round(gapH)} hours` : `${Math.max(1, Math.round(gapH * 60))} minutes`;
+    notes.push(rising
+      ? `The water at ${clock(start)} is low and only just starting to come back. The crew is off the sand at ${clock(fullEnd)} — ${gapTxt} before it reaches the beach.`
+      : `The water is still going out at ${clock(start)}, so the beach is opening up. The crew is off at ${clock(fullEnd)} — ${gapTxt} before it returns.`);
+  }
+
   const headline = level === "bad"
       ? (state === "HIGH" ? "High tide — not workable" : "Not workable at this time")
     : level === "warn"
@@ -548,6 +559,7 @@ function suggestionTimes(day, setupH, lenH, packH, currentStart) {
 
 function renderPlan() {
   const clock = clock24;                 // results are shown in 24-hour time too
+  planOffset = 0;                        // any change to the plan re-centres the chart
   const day = pDate.value;
   if (!day) { planOut.innerHTML = ""; return; }
 
@@ -609,6 +621,12 @@ function renderPlan() {
   if (day) syncDayPanel(day);
 }
 
+let planOffset = 0;            // swipe position of the plan chart, in ms
+const PLAN_BACK = 24 * HOUR;   // a full day of beach before the event
+const PLAN_FWD = 12 * HOUR;    // and the water coming back after it
+const PLAN_SPAN = PLAN_BACK + PLAN_FWD;
+const SIX_H = 6 * HOUR;
+
 function drawPlanCurve(r) {
   const c = document.getElementById("planCurve");
   if (!c) return;
@@ -622,14 +640,20 @@ function drawPlanCurve(r) {
 
   const pad = { l: 4, r: 4, t: 26, b: 16 };
   const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-  const dayStart = new Date(r.day + "T00:00:00+03:00").getTime();
-  const X = t => pad.l + ((t - dayStart) / (24 * HOUR)) * pw;
 
-  const dayEv = eventsFor(r.day);
-  const hs = dayEv.map(e => e.height);
-  const lo = hs.length ? Math.min(...hs, 0) : 0;
-  const hi = hs.length ? Math.max(...hs, 4) : 4;
-  const Y = v => pad.t + ph - ((Math.max(lo, Math.min(hi, v)) - lo) / Math.max(0.3, hi - lo)) * ph;
+  const winStart = r.start.getTime() - PLAN_BACK + planOffset;
+  const X = t => pad.l + ((t - winStart) / PLAN_SPAN) * pw;
+
+  // scale to what is on screen, not to one calendar day
+  let lo = Infinity, hi = -Infinity;
+  for (let px = 0; px <= pw; px += 3) {
+    const v = valueAt(winStart + (px / pw) * PLAN_SPAN);
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  if (!isFinite(lo)) { lo = 0; hi = 4; }
+  lo = Math.max(0, lo - 0.12); hi = Math.max(lo + 0.3, hi + 0.12);
+  const Y = v => pad.t + ph - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * ph;
 
   const block = (from, to, fill, label) => {
     const x1 = Math.max(pad.l, X(from.getTime()));
@@ -637,28 +661,29 @@ function drawPlanCurve(r) {
     if (x2 <= x1) return;
     ctx.fillStyle = fill;
     ctx.fillRect(x1, pad.t - 20, x2 - x1, ph + 20);
-    if (x2 - x1 > 20) {
+    if (x2 - x1 > 22) {
       ctx.fillStyle = "rgba(248,246,240,.95)";
       ctx.font = "700 8px Manrope,sans-serif";
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       ctx.fillText(label, (x1 + x2) / 2, pad.t - 17);
     }
   };
-  block(r.recStart, r.recEnd, "rgba(232,201,138,.30)", "SETUP");
-  block(r.start, r.end, "rgba(95,191,106,.32)", "EVENT");
-  block(r.end, r.fullEnd, "rgba(169,195,184,.34)", "PACK");
+  block(r.recStart, r.recEnd, "rgba(232,201,138,.46)", "SETUP");
+  block(r.start, r.end, "rgba(95,191,106,.46)", "EVENT");
+  block(r.end, r.fullEnd, "rgba(169,195,184,.46)", "PACK");
 
   ctx.beginPath();
   for (let px = 0; px <= pw; px++) {
-    const t = dayStart + (px / pw) * 24 * HOUR;
-    const y = Y(valueAt(t));
+    const y = Y(valueAt(winStart + (px / pw) * PLAN_SPAN));
     px === 0 ? ctx.moveTo(pad.l + px, y) : ctx.lineTo(pad.l + px, y);
   }
   ctx.strokeStyle = "rgba(99,214,203,.95)";
   ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.stroke();
 
-  for (const e of dayEv) {
-    const x = X(e.date.getTime()), y = Y(e.height);
+  for (const e of eventsAround(r.day, 2)) {
+    const t = e.date.getTime();
+    if (t < winStart || t > winStart + PLAN_SPAN) continue;
+    const x = X(t), y = Y(e.height);
     ctx.beginPath(); ctx.arc(x, y, 2.8, 0, 7);
     ctx.fillStyle = e.type === "HIGH" ? "#E8C98A" : "#63D6CB";
     ctx.fill();
@@ -671,15 +696,42 @@ function drawPlanCurve(r) {
   ctx.beginPath(); ctx.moveTo(xs, pad.t - 6); ctx.lineTo(xs, pad.t + ph); ctx.stroke();
   ctx.setLineDash([]);
 
+  // hour ticks on the Kenyan clock
   ctx.fillStyle = "rgba(169,195,184,.9)";
   ctx.font = "8.5px Manrope,sans-serif";
-  ctx.textAlign = "center"; ctx.textBaseline = "top";
-  for (let h = 0; h <= 24; h += 6) {
-    const x = pad.l + (h / 24) * pw;
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    const ampm = (h === 0 || h === 24 || h < 12) ? "am" : "pm";
-    ctx.textAlign = h === 0 ? "left" : h === 24 ? "right" : "center";
-    ctx.fillText(h12 + ampm, x, pad.t + ph + 3);
+  ctx.textBaseline = "top"; ctx.textAlign = "center";
+  const firstTick = winStart + (SIX_H - ((winStart + 3 * HOUR) % SIX_H)) % SIX_H;
+  for (let t = firstTick; t <= winStart + PLAN_SPAN - 1; t += SIX_H) {
+    const h = new Date(t + 3 * HOUR).getUTCHours();
+    const lbl = h === 0 ? "12am" : h === 12 ? "12pm" : (h % 12) + (h < 12 ? "am" : "pm");
+    const x = X(t);
+    if (x < pad.l + 12 || x > pad.l + pw - 12) continue;
+    ctx.fillText(lbl, x, pad.t + ph + 3);
+  }
+
+  ctx.fillStyle = "rgba(169,195,184,.5)";
+  ctx.font = "800 9px Manrope,sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("◀ ▶", pad.l + pw - 2, 2);
+
+  // drag to look around — a day back, or forward past the event
+  if (!c.dataset.dragReady) {
+    c.dataset.dragReady = "1";
+    let drag = null;
+    c.addEventListener("pointerdown", ev => {
+      drag = { x: ev.clientX, off: planOffset };
+      try { c.setPointerCapture(ev.pointerId); } catch (_) {}
+    });
+    c.addEventListener("pointermove", ev => {
+      if (!drag) return;
+      planOffset = drag.off + ((ev.clientX - drag.x) / c.clientWidth) * PLAN_SPAN;
+      const lim = 20 * 24 * HOUR;
+      planOffset = Math.max(-lim, Math.min(lim, planOffset));
+      drawPlanCurve(r);
+    });
+    const stop = () => { drag = null; };
+    c.addEventListener("pointerup", stop);
+    c.addEventListener("pointercancel", stop);
   }
 }
 
