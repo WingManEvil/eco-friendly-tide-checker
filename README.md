@@ -5,6 +5,17 @@ crew whether a beach event is actually possible on the tide they've been asked f
 
 One file. Works offline. No accounts, no adverts, no API keys.
 
+**Live:** https://wingmanevil.github.io/eco-friendly-tide-checker/
+
+### Put it on a phone (no app store, no APK)
+
+1. Open the link above in Chrome (Android) or Safari (iPhone)
+2. Android: menu → **Add to Home screen**. iPhone: Share → **Add to Home Screen**
+
+You get a real icon, it opens fullscreen without browser bars, and it updates itself — no
+resending files. `manifest.json` gives it the name and icon; `sw.js` keeps a copy on the phone
+so it still opens with no signal (after the first visit).
+
 The app has four parts: **Now** (time + which way the water is moving), **Plan a beach event**
 (does the tide allow this event, and when do we build), the **tide curve** (drag through the
 year), and **Pick a day** (any date in detail).
