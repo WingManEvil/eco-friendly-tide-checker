@@ -85,15 +85,19 @@
   .vicon{display:flex; align-items:center; justify-content:center; width:30px; height:30px;
     border-radius:50%; background:rgba(0,0,0,.22); flex:0 0 auto}
   .vsub{font-size:13px; color:var(--ink); opacity:.85; margin-top:7px}
-  .trybar{display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-top:10px;
+  .trybar{display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:10px;
     padding:9px 10px; border-radius:12px; background:rgba(0,0,0,.20)}
   .trylbl{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
     font-weight:800; flex:0 0 100%}
-  .trychip{background:rgba(154,209,75,.16); color:var(--lime); border:1px solid rgba(154,209,75,.42);
-    border-radius:999px; padding:7px 11px; font-family:'Manrope',sans-serif; font-size:12px;
+  .trychip{background:rgba(255,255,255,.04); color:var(--ink); border:1px solid var(--line);
+    border-radius:999px; padding:6px 9px; font-family:'Manrope',sans-serif; font-size:11.5px;
     font-weight:800; cursor:pointer; font-variant-numeric:tabular-nums}
-  .trychip:active{background:rgba(154,209,75,.32)}
-  .trychip.on{background:var(--lime); color:#0B2420; border-color:var(--lime)}
+  .trychip.good{color:var(--lime); border-color:rgba(154,209,75,.45); background:rgba(154,209,75,.12)}
+  .trychip.warn{color:#E8C98A; border-color:rgba(232,201,138,.45); background:rgba(232,201,138,.12)}
+  .trychip.bad{color:#E0705C; border-color:rgba(224,112,92,.50); background:rgba(224,112,92,.12)}
+  .trychip.on.good{background:var(--lime); color:#0B2420; border-color:var(--lime)}
+  .trychip.on.warn{background:#E8C98A; color:#0B2420; border-color:#E8C98A}
+  .trychip.on.bad{background:#E0705C; color:#FFF4F1; border-color:#E0705C}
   .times{display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-top:14px}
   .trow{display:flex; flex-direction:column; gap:1px}
   .trow span{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700}
@@ -524,22 +528,22 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
            level, state, headline, notes, levelStart, rising, nearestLow, setupH, lenH, packH, day };
 }
 
-// When a time doesn't work, find the nearest ones that do — so the crew can go back to the
-// client with a concrete alternative instead of "not possible".
-function alternativeTimes(day, setupH, lenH, packH, currentStart, allowWarn) {
-  const good = [], warn = [];
-  for (let m = 6 * 60; m <= 23 * 60; m += 30) {
+// Times to try: the nearest ones that work, plus the nearest ones that don't, colour-coded.
+// Seeing a red time next to a green one is what tells the crew where the safe window starts —
+// and that shaving the setup time might move a time from red to green.
+function suggestionTimes(day, setupH, lenH, packH, currentStart) {
+  const all = [];
+  for (let m = 0; m <= 23 * 60 + 30; m += 30) {
     const t = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
-    const r = planEvent(day, t, setupH, lenH, packH);
-    if (r.level === "good") good.push({ t, m });
-    else if (r.level === "warn") warn.push({ t, m });
+    all.push({ t, m, level: planEvent(day, t, setupH, lenH, packH).level });
   }
-  const pool = good.length ? good : (allowWarn ? warn : []);
-  const req = currentStart.getTime();
-  return pool
-    .sort((a, b) => Math.abs(at(day, a.t) - req) - Math.abs(at(day, b.t) - req))
-    .slice(0, 3)
-    .sort((a, b) => a.m - b.m);
+  const curM = currentStart.getHours() * 60 + currentStart.getMinutes();
+  const near = arr => [...arr].sort((a, b) => Math.abs(a.m - curM) - Math.abs(b.m - curM));
+  const picked = [
+    ...near(all.filter(a => a.level === "good")).slice(0, 2),
+    ...near(all.filter(a => a.level !== "good")).slice(0, 2),
+  ];
+  return picked.sort((a, b) => a.m - b.m);
 }
 
 function renderPlan() {
@@ -566,14 +570,12 @@ function renderPlan() {
   })() : "";
 
   // Suggestions stay on screen after a tap so Eco Friendly can compare timings side by side.
-  const alts = alternativeTimes(day, setupH, lenH, packH, r.start, r.level !== "good");
+  const alts = suggestionTimes(day, setupH, lenH, packH, r.start);
   const chosen = planTime();
-  const showTry = r.level === "good" ? alts.length > 1 : alts.length >= 1;
   let tryBar = "";
-  if (showTry) {
-    const lbl = r.level === "good" ? "Other times that work" : "Try a different start";
-    tryBar = `<div class="trybar"><span class="trylbl">${lbl}</span>${
-      alts.map(a => `<button class="trychip${a.t === chosen ? " on" : ""}" data-h="${a.t.slice(0, 2)}" data-m="${a.t.slice(3)}">${a.t}</button>`).join("")
+  if (alts.length > 1) {
+    tryBar = `<div class="trybar"><span class="trylbl">Times to try</span>${
+      alts.map(a => `<button class="trychip ${a.level}${a.t === chosen ? " on" : ""}" data-h="${a.t.slice(0, 2)}" data-m="${a.t.slice(3)}">${a.t}</button>`).join("")
     }</div>`;
   }
 
@@ -601,6 +603,10 @@ function renderPlan() {
     </div>`;
 
   drawPlanCurve(r);
+
+  // Keep the tide list underneath in step with the date being planned — a planner on 19 Nov
+  // sitting above a tide table for 15 Nov is how crews end up at the beach on the wrong day.
+  if (day) syncDayPanel(day);
 }
 
 function drawPlanCurve(r) {
