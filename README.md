@@ -101,6 +101,10 @@ actual present moment now sits on the curve.
 - Drag **left** → look back
 - Leave it alone, or press **Back to now**, and it snaps to the present
 
+The graph opens three hours ahead on purpose: if it started exactly on the clock, the red line
+and the orange NOW line would sit on top of each other and nothing would look draggable. The
+red line carries a grab handle with arrows, and it pulses briefly on load.
+
 The curve is drawn from the KMFRI **hourly** table (24 readings a day, page 25 onwards),
 smoothed so it reads as a continuous line. Peaks and troughs are marked from the high/low
 table, which is the same source. The vertical scale is fixed at 0–4 m so it never jumps

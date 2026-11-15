@@ -100,7 +100,8 @@
   #chart{display:block; width:100%; height:188px; touch-action:none; cursor:grab}
   #chart:active{cursor:grabbing}
   .chart-foot{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px}
-  .chart-foot span{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-left:auto}
+  .chart-foot span{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:#CFE3DA;
+    margin-left:auto; font-weight:800}
   .snapbtn{background:rgba(154,209,75,.14); color:var(--lime); border:1px solid rgba(154,209,75,.4);
     border-radius:999px; padding:5px 12px; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
     font-weight:800; cursor:pointer; font-family:inherit}
@@ -170,7 +171,7 @@
     <canvas id="chart"></canvas>
     <div class="chart-foot">
       <button class="snapbtn hide" id="snap">Back to now</button>
-      <span>drag to look ahead →</span>
+      <span>◀ drag the red line ▶</span>
     </div>
   </section>
 
@@ -628,6 +629,7 @@ function drawPlanCurve(r) {
 const VIEW_MS = 36 * HOUR;
 const Y_MAX = 4.0;
 let offset = 0, dragging = false, lastX = 0;
+let hintPulse = false;      // brief glow on first load so the eye finds the handle
 
 const canvas = document.getElementById("chart");
 const whenEl = document.getElementById("chartWhen");
@@ -734,7 +736,10 @@ function drawChart() {
 
     ctx.font = "800 8px Manrope,sans-serif";
     const tw = ctx.measureText("NOW").width + 10;
-    const tx = Math.max(pad.l + tw / 2, Math.min(pad.l + pw - tw / 2, nx));
+    // keep the tag clear of the red grab handle when the two lines nearly coincide
+    let tagX = nx;
+    if (Math.abs(nx - cx) < 48) tagX = nx + (nx <= cx ? -32 : 32);
+    const tx = Math.max(pad.l + tw / 2, Math.min(pad.l + pw - tw / 2, tagX));
     const ty = pad.t - 11;
     ctx.fillStyle = "#FF8A2B";
     ctx.beginPath();
@@ -746,11 +751,49 @@ function drawChart() {
     ctx.fillText("NOW", tx, ty + 0.5);
   }
 
+  ctx.save();
+  if (hintPulse) {
+    ctx.shadowColor = "#E0705C";
+    ctx.shadowBlur = 7 + 10 * (0.5 + 0.5 * Math.sin(Date.now() / 200));
+  }
   ctx.strokeStyle = "#E0705C"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(cx, pad.t - 6); ctx.lineTo(cx, pad.t + ph); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, pad.t - 5); ctx.lineTo(cx, pad.t + ph); ctx.stroke();
+  ctx.restore();
+
+  // grab handle — the clearest possible signal that this line is the thing you drag
+  const gw = 32, gh = 13, gy = pad.t - 12;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(cx - gw / 2, gy - gh / 2, gw, gh, 6.5);
+  else ctx.rect(cx - gw / 2, gy - gh / 2, gw, gh);
+  ctx.fillStyle = "#E0705C";
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  for (const dir of [-1, 1]) {
+    const bx = cx + dir * 6;
+    ctx.beginPath();
+    ctx.moveTo(bx + dir * 3.5, gy);
+    ctx.lineTo(bx - dir * 2, gy - 3.2);
+    ctx.lineTo(bx - dir * 2, gy + 3.2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   const cy = Y(valueAt(c));
   ctx.beginPath(); ctx.arc(cx, cy, 5.5, 0, 7); ctx.fillStyle = "#E0705C"; ctx.fill();
   ctx.beginPath(); ctx.arc(cx, cy, 2, 0, 7); ctx.fillStyle = "#fff"; ctx.fill();
+}
+
+// A few seconds of glow on load, then it settles — enough to draw the eye, not enough
+// to burn battery or distract.
+function startHintPulse() {
+  hintPulse = true;
+  const end = Date.now() + 4200;
+  const tick = () => {
+    drawChart();
+    if (Date.now() < end) requestAnimationFrame(tick);
+    else { hintPulse = false; drawChart(); }
+  };
+  requestAnimationFrame(tick);
 }
 
 function updateReadout() {
@@ -883,8 +926,14 @@ pDate.value = dayKey(new Date());
 renderNow();
 renderPlan();
 renderWeek();
+
+// Open a little ahead of now. If the graph starts exactly on the clock, the red line and
+// the orange NOW line sit on top of each other and nobody can tell the graph is draggable.
+offset = 3 * HOUR;
+clampOffset();
 drawChart();
 updateReadout();
+startHintPulse();
 setInterval(() => { renderNow(); clampOffset(); drawChart(); updateReadout(); }, 60000);
 
 // Installable app + offline copy. Service workers only run on https, so this is
