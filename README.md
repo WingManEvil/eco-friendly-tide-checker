@@ -93,6 +93,10 @@ The next tide time sits directly under the words, so there is nothing to work ou
 
 The red line is **you**, and it never moves. The world slides past it.
 
+An **orange line marked NOW** is the real clock. It cannot be dragged — when you drag into
+tonight or next week, the orange line slides away from the red one and shows you where the
+actual present moment now sits on the curve.
+
 - Drag **right** → look further ahead
 - Drag **left** → look back
 - Leave it alone, or press **Back to now**, and it snaps to the present

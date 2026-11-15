@@ -719,6 +719,33 @@ function drawChart() {
     }
   }
 
+  // NOW — the real clock, in neon orange. It cannot be dragged: the world slides past it.
+  // Live, it sits exactly under the red line; drag away and the two separate.
+  const nowMs = Date.now();
+  if (nowMs >= start && nowMs <= start + VIEW_MS) {
+    const nx = X(nowMs);
+    ctx.save();
+    ctx.shadowColor = "#FF7A18";
+    ctx.shadowBlur = 9;
+    ctx.strokeStyle = "#FF8A2B";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(nx, pad.t); ctx.lineTo(nx, pad.t + ph); ctx.stroke();
+    ctx.restore();
+
+    ctx.font = "800 8px Manrope,sans-serif";
+    const tw = ctx.measureText("NOW").width + 10;
+    const tx = Math.max(pad.l + tw / 2, Math.min(pad.l + pw - tw / 2, nx));
+    const ty = pad.t - 11;
+    ctx.fillStyle = "#FF8A2B";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(tx - tw / 2, ty - 6, tw, 12, 6);
+    else ctx.rect(tx - tw / 2, ty - 6, tw, 12);
+    ctx.fill();
+    ctx.fillStyle = "#0B2420";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("NOW", tx, ty + 0.5);
+  }
+
   ctx.strokeStyle = "#E0705C"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(cx, pad.t - 6); ctx.lineTo(cx, pad.t + ph); ctx.stroke();
   const cy = Y(valueAt(c));
