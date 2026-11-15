@@ -67,6 +67,9 @@
     background-position:calc(100% - 17px) 55%, calc(100% - 12px) 55%; background-size:5px 5px,5px 5px;
     background-repeat:no-repeat; padding-right:32px}
   .field input:focus,.field select:focus{outline:2px solid rgba(154,209,75,.5); outline-offset:1px}
+  .t24{display:flex; align-items:center; gap:3px}
+  .t24 select{flex:1; min-width:0; text-align:center; padding-left:4px; padding-right:4px}
+  .t24 b{color:var(--dim); font-weight:800; font-size:15px}
 
   .verdict{margin-top:14px; border-radius:18px; padding:16px; border:1px solid}
   .verdict.good{background:rgba(95,191,106,.12); border-color:rgba(95,191,106,.42)}
@@ -174,7 +177,13 @@
   <section class="card">
     <div class="grid">
       <label class="field"><span>Event date</span><input type="date" id="pDate"></label>
-      <label class="field"><span>Client start time</span><input type="time" id="pTime" value="18:00"></label>
+      <label class="field"><span>Client start time</span>
+        <div class="t24">
+          <select id="pTimeH" aria-label="Hour"></select>
+          <b>:</b>
+          <select id="pTimeM" aria-label="Minutes"></select>
+        </div>
+      </label>
       <label class="field"><span>Setup needs</span>
         <select id="pSetup">
           <option value="0.5">30 minutes</option>
@@ -253,6 +262,11 @@ const dayKey = d => {
   return `${g("year")}-${g("month")}-${g("day")}`;
 };
 const clock = d => timeFmt.format(d).replace(" ", "").toLowerCase();
+// 24-hour version — the planner shows times the same way the form takes them
+const clock24 = d => {
+  const p = minsFmt.formatToParts(d), g = t => p.find(x => x.type === t).value;
+  return g("hour") + ":" + g("minute");
+};
 const at = (day, hhmm) => new Date(day + "T" + hhmm + ":00+03:00");
 const minsOf = d => { const p = minsFmt.formatToParts(d), g = t => Number(p.find(x => x.type === t).value); return g("hour") * 60 + g("minute"); };
 const hhmmOf = m => {
@@ -355,13 +369,29 @@ function renderNow() {
    PLANNER — can we build here, and when do the crew start?
    ============================================================ */
 const pDate = document.getElementById("pDate");
-const pTime = document.getElementById("pTime");
 const pSetup = document.getElementById("pSetup");
 const pLen = document.getElementById("pLen");
 const pPack = document.getElementById("pPack");
 const planOut = document.getElementById("planOut");
 
+// 24-hour start time: two dropdowns, because the native time picker follows the
+// phone's locale and would show AM/PM whatever we ask for.
+const pTimeH = document.getElementById("pTimeH");
+const pTimeM = document.getElementById("pTimeM");
+for (let h = 0; h < 24; h++) {
+  const v = String(h).padStart(2, "0");
+  pTimeH.add(new Option(v, v));
+}
+for (let m = 0; m < 60; m += 5) {
+  const v = String(m).padStart(2, "0");
+  pTimeM.add(new Option(v, v));
+}
+pTimeH.value = "18";
+pTimeM.value = "00";
+const planTime = () => pTimeH.value + ":" + pTimeM.value;
+
 function planEvent(day, hhmm, setupH, lenH, packH) {
+  const clock = clock24;                 // everything the planner prints is 24-hour
   const start = at(day, hhmm);
   const end = new Date(start.getTime() + lenH * HOUR);          // guests leave
   const fullEnd = new Date(end.getTime() + packH * HOUR);       // crew leaves
@@ -475,10 +505,11 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
 }
 
 function renderPlan() {
+  const clock = clock24;                 // results are shown in 24-hour time too
   const day = pDate.value;
   if (!day) { planOut.innerHTML = ""; return; }
 
-  const r = planEvent(day, pTime.value || "18:00", Number(pSetup.value), Number(pLen.value), Number(pPack.value));
+  const r = planEvent(day, planTime(), Number(pSetup.value), Number(pLen.value), Number(pPack.value));
   const icon = r.level === "good" ? ICON_OK : r.level === "warn" ? ICON_WARN : ICON_BAD;
   const tideWord = r.state === "LOW" ? "low" : r.state === "MID" ? "halfway" : "high";
   const sub = `Water at ${clock(r.start)} is ${r.levelStart.toFixed(2)} m and ${r.rising ? "coming in" : "going out"} — ${tideWord} water.`;
@@ -585,8 +616,8 @@ function drawPlanCurve(r) {
   }
 }
 
-[pDate, pTime, pSetup, pLen, pPack].forEach(el => el.addEventListener("change", renderPlan));
-[pDate, pTime].forEach(el => el.addEventListener("input", renderPlan));
+[pDate, pTimeH, pTimeM, pSetup, pLen, pPack].forEach(el => el.addEventListener("change", renderPlan));
+[pDate].forEach(el => el.addEventListener("input", renderPlan));
 
 /* ============================================================
    Tide curve — the red line is YOU and it never moves.
