@@ -150,6 +150,9 @@ download fails loudly instead of shipping wrong tides.
 | `index.html` | The whole app — one file, data included, no build step |
 | `tides.json` | The same predictions as JSON, for when this becomes a real backend |
 | `parse_tides.py` | PDF → data. Re-run when a new yearly booklet is published |
+| `build.py` | Runs the parser, then embeds the logo as a data URI |
+| `logo.png` | The logo exactly as published on ecofriendlyeventsdiani.com |
+| `logo-dark.png` | The same artwork with the white background removed and the grey-green wordmark recoloured cream, so it reads on the dark UI. Shapes, leaves and letters are unchanged |
 | `kmfri-2026.pdf` | The original source document |
 | `kmfri.txt` | Text dump of the PDF that the parser reads |
 

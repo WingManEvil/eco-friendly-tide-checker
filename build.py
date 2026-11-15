@@ -19,7 +19,7 @@ print("1/2  parsing the KMFRI booklet…")
 subprocess.run([sys.executable, "parse_tides.py"], check=True)
 
 print("2/2  embedding the logo…")
-png = open("logo.png", "rb").read()
+png = open("logo-dark.png", "rb").read()
 uri = "data:image/png;base64," + base64.b64encode(png).decode()
 
 html = open("index.html", encoding="utf-8").read()
