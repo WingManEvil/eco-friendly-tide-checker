@@ -451,10 +451,12 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
 
   if (state === "MID") {
     worse("warn");
-    notes.push(`At ${clock(start)} the tide is already ${Math.round(relStart * 100)}% of the way up to high water — half the beach is gone.`);
+    notes.push(rising
+      ? `At ${clock(start)} the water is already coming back in — about half the beach is gone.`
+      : `At ${clock(start)} the water is still going out — the beach keeps opening up.`);
   } else if (state === "HIGH") {
     worse("bad");
-    notes.push(`At ${clock(start)} the tide is ${Math.round(relStart * 100)}% of the way up to high water. The sand you need is under it.`);
+    notes.push(`At ${clock(start)} the water is too high — the sand you need is under it.`);
   }
 
   const crewBlocked = beachOpen && needStart < beachOpen;
@@ -468,10 +470,10 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
 
   if (!waterReturns && relEnd >= 0.85) {
     worse("bad");
-    notes.push(`By ${clock(end)} the tide is ${Math.round(relEnd * 100)}% of the way to high water — the sea will be where the party is.`);
+    notes.push(`By ${clock(end)} the water is over the sand — the party would be standing in it.`);
   } else if (!waterReturns && relEnd >= 0.65) {
     worse("warn");
-    notes.push(`By ${clock(end)} the tide is ${Math.round(relEnd * 100)}% of the way to high water — the beach gets tight.`);
+    notes.push(`By ${clock(end)} the beach is getting thin.`);
   }
 
   if (waterReturns) {
@@ -489,10 +491,10 @@ function planEvent(day, hhmm, setupH, lenH, packH) {
     // packing down is fast and forgiving — only flag it when the water is genuinely on you
     if (relPack >= 0.92) {
       worse("bad");
-      notes.push(`Packing ends with the tide ${Math.round(relPack * 100)}% of the way to high water — the kit would be in the sea.`);
+      notes.push(`The crew finishes packing at ${clock(fullEnd)} with the water already over the sand — the kit would be in the sea.`);
     } else if (relPack >= 0.82) {
       worse("warn");
-      notes.push(`Packing ends with the tide ${Math.round(relPack * 100)}% of the way to high water — watch the kit.`);
+      notes.push(`The crew finishes packing at ${clock(fullEnd)} just as the water reaches the sand — watch the kit.`);
     }
   }
 
@@ -550,9 +552,18 @@ function renderPlan() {
   const icon = r.level === "good" ? ICON_OK : r.level === "warn" ? ICON_WARN : ICON_BAD;
   const tideWord = r.state === "LOW" ? "low" : r.state === "MID" ? "halfway" : "high";
   const sub = `Water at ${clock(r.start)} is ${r.levelStart.toFixed(2)} m and ${r.rising ? "coming in" : "going out"} — ${tideWord} water.`;
-  const lowLine = (r.level !== "good" && r.nearestLow)
-    ? `<li>The most beach is at low tide, <b>${clock(r.nearestLow.date)}</b>. If the client can move the time, start within two hours of that.</li>`
-    : "";
+  // The advice line. Say where the sand is, the exact window, and which way to move the clock.
+  const lowLine = (r.level !== "good" && r.nearestLow) ? (() => {
+    const lo = r.nearestLow.date;
+    const a = new Date(lo.getTime() - 2 * HOUR);   // aim to build 1–2 hours before low water
+    const b = new Date(lo.getTime() - 1 * HOUR);
+    const d1 = (a - r.start) / HOUR, d2 = (b - r.start) / HOUR;
+    const small = Math.max(1, Math.round(Math.min(Math.abs(d1), Math.abs(d2))));
+    const big = Math.max(1, Math.round(Math.max(Math.abs(d1), Math.abs(d2))));
+    const later = (d1 + d2) / 2 > 0;
+    const span = small === big ? `${small} hour${small > 1 ? "s" : ""}` : `${small}–${big} hours`;
+    return `<li>Widest sand is at low tide, <b>${clock(lo)}</b>. Best start is <b>${clock(a)} to ${clock(b)}</b> — that is about ${span} ${later ? "later" : "earlier"} than ${clock(r.start)}.</li>`;
+  })() : "";
 
   // Suggestions stay on screen after a tap so Eco Friendly can compare timings side by side.
   const alts = alternativeTimes(day, setupH, lenH, packH, r.start, r.level !== "good");
